@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIH-FARMACIA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col text-slate-800">
+
+    <!-- PANTALLA DE LOGIN -->
+    <div id="view-login" class="flex-1 flex items-center justify-center bg-slate-100 z-50 absolute inset-0">
+        <div class="bg-white p-8 rounded-lg wireframe-border shadow-xl max-w-md w-full">
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-bold tracking-tight">SIH-FARMACIA</h1>
+                <p class="text-sm text-slate-500 font-mono mt-1">SISTEMA DE TRAZABILIDAD FARMACÉUTICA</p>
+            </div>
+            
+            <form onsubmit="handleLogin(event)" novalidate class="space-y-4">
+                <div>
+                    <label for="username" class="block text-sm font-semibold mb-1 text-slate-700 uppercase">Correo institucional</label>
+                    <input type="email" id="username" autocomplete="username" class="w-full border-2 border-slate-300 p-2 rounded focus:border-slate-800 outline-none font-mono" placeholder="usuario@hospital.mx" required>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-semibold mb-1 text-slate-700 uppercase">Contraseña</label>
+                    <input type="password" id="password" autocomplete="current-password" class="w-full border-2 border-slate-300 p-2 rounded focus:border-slate-800 outline-none font-mono" placeholder="••••••••" required>
+                </div>
+                <p id="login-error" class="hidden text-sm font-semibold text-red-700 bg-red-50 border border-red-300 rounded p-2 font-mono"></p>
+                <button id="login-btn" type="submit" class="w-full bg-slate-900 text-white font-bold py-3 px-4 rounded mt-4 hover:bg-slate-700 transition-colors uppercase tracking-wider">
+                    Ingresar al Sistema
+                </button>
+            </form>
+            
+            <div class="mt-6 text-center text-xs text-slate-400 font-mono border-t pt-4">
+                ACCESO RESTRINGIDO - AUDITORÍA RBAC ACTIVA
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR PRINCIPAL DE LA APP (Oculto hasta hacer login) -->
+    <div id="app-container" class="hidden h-full flex flex-col bg-white wireframe-border m-2 shadow-lg rounded-sm overflow-hidden">
+        
+        <!-- HEADER GLOBAL (Como en los wireframes) -->
+        <header class="flex items-center justify-between px-6 py-3 border-b-2 border-slate-800 bg-white">
+            <div class="flex items-center gap-4">
+                <div class="flex gap-1">
+                    <div class="w-3 h-3 rounded-full border border-slate-400"></div>
+                    <div class="w-3 h-3 rounded-full border border-slate-400"></div>
+                    <div class="w-3 h-3 rounded-full border border-slate-400"></div>
+                </div>
+                <span class="font-mono text-sm font-semibold text-slate-600">SIH-FARMACIA</span>
+            </div>
+            <div class="flex gap-4">
+                <!-- Navegación simulada para cambiar de vista -->
+                <select id="nav-select" onchange="switchView(this.value)" class="border-2 border-slate-300 rounded px-2 py-1 text-xs font-bold uppercase cursor-pointer outline-none hover:border-slate-800">
+                    <option value="monitor">1. Monitor de Inventario</option>
+                    <option value="dispensation">2. Registro Dispensación</option>
+                    <option value="traceability">3. Trazabilidad y Control</option>
+                    <option value="audit">4. Bitácora Auditoría</option>
+                    <option value="entries">5. Entradas y Traslados</option>
+                    <option value="users">6. Usuarios</option>
+                </select>
+                
+                <div class="border-2 border-slate-800 px-3 py-1 text-sm font-bold flex items-center gap-2 bg-slate-50">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                    <span id="rol-usuario">ROL: --</span>
+                </div>
+                <button onclick="cerrarSesion()" class="border-2 border-slate-300 rounded px-3 py-1 text-xs font-bold uppercase hover:border-slate-800">Salir</button>
+            </div>
+        </header>
+
+        <!-- ÁREA DE VISTAS PRINCIPAL -->
+        <main class="flex-1 overflow-y-auto p-8 bg-white relative">
+
+            <!-- VISTA 1: MONITOR DE INVENTARIO Y ALERTAS -->
+            <div id="view-monitor" class="view-section block animate-fade-in">
+
+                <!-- Encabezado -->
+                <div class="flex justify-between items-end mb-6 flex-wrap gap-3">
+                    <div>
+                        <h2 class="text-3xl font-black uppercase flex items-center gap-2">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                            Monitor de Inventario y Alertas
+                        </h2>
+                        <p class="font-mono text-sm text-slate-500 mt-1">Existencias, caducidades y reposición de todo el hospital.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-mono text-xs text-slate-500">Actualizado: <span id="mon-actualizado">--:--:--</span></span>
+                        <button onclick="cargarMonitor()" class="border-2 border-slate-800 px-3 py-1 text-xs font-bold uppercase hover:bg-slate-100">↻ Actualizar</button>
+                        <button id="mon-generar" onclick="generarAlertas()" class="hidden border-2 border-yellow-500 text-yellow-700 bg-yellow-50 px-3 py-1 text-xs font-bold uppercase hover:bg-yellow-100">⚡ Generar alertas</button>
+                    </div>
+                </div>
+
+                <p id="mon-error" class="hidden mb-4 text-sm font-semibold text-red-700 bg-red-50 border border-red-300 rounded p-2 font-mono"></p>
+
+                <!-- Tarjetas de KPI -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div class="wireframe-border p-4 flex flex-col justify-between">
+                        <div class="text-sm font-bold text-slate-500 uppercase">Total Insumos</div>
+                        <div id="kpi-total" class="text-3xl font-black mt-2">--</div>
+                        <div class="text-xs text-slate-500 font-bold mt-2">Catálogo activo</div>
+                    </div>
+                    <div class="border-2 border-red-500 bg-red-50 p-4 flex flex-col justify-between">
+                        <div class="text-sm font-bold text-red-700 uppercase">Stock Mínimo</div>
+                        <div class="text-3xl font-black text-red-600 mt-2"><span id="kpi-bajo">--</span> <span class="text-sm">fármacos</span></div>
+                        <div id="kpi-bajo-sub" class="text-xs text-red-600 font-bold mt-2">&nbsp;</div>
+                    </div>
+                    <div class="border-2 border-yellow-400 bg-yellow-50 p-4 flex flex-col justify-between">
+                        <div class="text-sm font-bold text-yellow-700 uppercase">Caducan en 30 días</div>
+                        <div class="text-3xl font-black text-yellow-600 mt-2"><span id="kpi-caduca">--</span> <span class="text-sm">lotes</span></div>
+                        <div id="kpi-caduca-sub" class="text-xs text-yellow-700 font-bold mt-2">&nbsp;</div>
+                    </div>
+                    <div class="wireframe-border p-4 flex flex-col justify-between">
+                        <div class="text-sm font-bold text-slate-500 uppercase">Disponibilidad</div>
+                        <div id="kpi-disp" class="text-3xl font-black text-teal-600 mt-2">--</div>
+                        <div class="text-xs text-slate-500 font-bold mt-2">Insumos con stock vigente</div>
+                    </div>
+                </div>
+
+                <!-- Tabla 1: reorden -->
+                <div class="wireframe-border mb-8">
+                    <div class="bg-slate-100 p-3 border-b-2 border-slate-800 flex justify-between items-center">
+                        <h3 class="font-bold text-sm uppercase flex items-center gap-2">
+                            <span>☷</span> Insumos por debajo del stock mínimo
+                        </h3>
+                        <span id="reorden-count" class="font-mono text-xs border border-slate-300 px-2 py-1 bg-white">0</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs uppercase font-bold text-slate-700 bg-white border-b-2 border-slate-800">
+                                <tr>
+                                    <th class="p-3 border-r border-slate-300">Cód. Insumo</th>
+                                    <th class="p-3 border-r border-slate-300">Descripción Fármaco</th>
+                                    <th class="p-3 border-r border-slate-300">Ubicación Actual</th>
+                                    <th class="p-3 border-r border-slate-300 text-center">Stock</th>
+                                    <th class="p-3 border-r border-slate-300 text-center">Mínimo</th>
+                                    <th class="p-3 text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-reorden" class="font-mono text-slate-700">
+                                <tr><td colspan="6" class="p-4 text-center text-slate-400">Cargando…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tablas 2 y 3: caducidades y alertas -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                    <div class="wireframe-border">
+                        <div class="bg-slate-100 p-3 border-b-2 border-slate-800 flex justify-between items-center">
+                            <h3 class="font-bold text-sm uppercase flex items-center gap-2">
+                                <span>⏳</span> Lotes por caducar (90 / 60 / 30 días)
+                            </h3>
+                            <span id="caducidad-count" class="font-mono text-xs border border-slate-300 px-2 py-1 bg-white">0</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left">
+                                <thead class="text-xs uppercase font-bold text-slate-700 bg-white border-b-2 border-slate-800">
+                                    <tr>
+                                        <th class="p-3 border-r border-slate-300">Lote / Insumo</th>
+                                        <th class="p-3 border-r border-slate-300 text-center">Caduca</th>
+                                        <th class="p-3 border-r border-slate-300 text-center">Stock</th>
+                                        <th class="p-3 text-center">Nivel</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-caducidad" class="font-mono text-slate-700">
+                                    <tr><td colspan="4" class="p-4 text-center text-slate-400">Cargando…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="p-3 border-t border-slate-300 text-xs text-slate-500 font-mono">
+                            La salida PEPS toma siempre primero el lote que caduca antes.
+                        </div>
+                    </div>
+
+                    <div class="wireframe-border">
+                        <div class="bg-slate-100 p-3 border-b-2 border-slate-800 flex justify-between items-center">
+                            <h3 class="font-bold text-sm uppercase flex items-center gap-2">
+                                <span>🔔</span> Alertas pendientes
+                            </h3>
+                            <span id="alertas-count" class="font-mono text-xs border border-slate-300 px-2 py-1 bg-white">0</span>
+                        </div>
+                        <ul id="lista-alertas" class="divide-y divide-slate-200 max-h-96 overflow-y-auto">
+                            <li class="p-4 text-center text-slate-400 text-sm">Cargando…</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA 2: REGISTRO DE DISPENSACIÓN (PEPS) -->
+            <div id="view-dispensation" class="view-section hidden animate-fade-in h-full flex flex-col">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-black uppercase flex items-center gap-2">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        Registro de Dispensación
+                    </h2>
+                    <p class="font-mono text-sm text-slate-500 mt-1">Registra la salida de un medicamento. El sistema elige el lote que caduca primero (PEPS).</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1">
+
+                    <!-- Formulario -->
+                    <form id="form-dispensacion" onsubmit="ejecutarDispensacion(event)" novalidate class="wireframe-border p-6 flex flex-col">
+                        <div class="flex justify-between border-b-2 border-slate-200 pb-2 mb-6">
+                            <h3 class="font-bold uppercase text-slate-800">Formulario de salida</h3>
+                            <span class="text-xs text-slate-400 font-mono">EL LOTE LO ASIGNA EL SISTEMA</span>
+                        </div>
+
+                        <div class="space-y-5 flex-1">
+                            <div>
+                                <label for="disp-insumo" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Insumo solicitado</label>
+                                <select id="disp-insumo" onchange="actualizarInfoInsumo()" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-3 font-mono text-sm">
+                                    <option value="">Cargando…</option>
+                                </select>
+                                <p id="disp-insumo-info" class="text-xs font-mono mt-1 text-slate-500">&nbsp;</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                    <label for="disp-cantidad" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Cantidad</label>
+                                    <input id="disp-cantidad" type="number" min="1" step="1" inputmode="numeric" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-3 font-mono text-sm" placeholder="0">
+                                </div>
+                                <div>
+                                    <label for="disp-origen" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Sale de</label>
+                                    <select id="disp-origen" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-3 font-mono text-sm"></select>
+                                </div>
+                                <div>
+                                    <label for="disp-destino" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Área destino</label>
+                                    <select id="disp-destino" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-3 font-mono text-sm"></select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="disp-medico-q" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Médico <span id="disp-medico-req" class="text-red-600"></span></label>
+                                    <div class="relative">
+                                        <input id="disp-medico-q" type="text" autocomplete="off" placeholder="Nombre o cédula" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-3 font-mono text-sm">
+                                        <ul id="disp-medico-lista" class="hidden absolute z-20 left-0 right-0 bg-white border-2 border-slate-800 max-h-48 overflow-y-auto shadow-lg"></ul>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label for="disp-paciente-q" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Paciente <span id="disp-paciente-req" class="text-red-600"></span></label>
+                                    <div class="relative">
+                                        <input id="disp-paciente-q" type="text" autocomplete="off" placeholder="Nombre o expediente" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-3 font-mono text-sm">
+                                        <ul id="disp-paciente-lista" class="hidden absolute z-20 left-0 right-0 bg-white border-2 border-slate-800 max-h-48 overflow-y-auto shadow-lg"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p id="disp-error" class="hidden mt-4 text-sm font-semibold text-red-700 bg-red-50 border border-red-300 rounded p-2 font-mono"></p>
+
+                        <button id="disp-btn" type="submit" class="w-full bg-black text-white font-bold py-4 px-4 rounded-sm flex items-center justify-center gap-2 mt-4 hover:bg-slate-800 transition-colors disabled:opacity-50">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                            <span id="disp-btn-texto">EJECUTAR SALIDA</span>
+                        </button>
+                    </form>
+
+                    <!-- Resultado -->
+                    <div class="border-2 border-blue-500 p-6 flex flex-col bg-slate-50">
+                        <h3 class="font-bold uppercase text-blue-700 flex items-center gap-2 mb-4">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Resultado de la salida
+                        </h3>
+
+                        <div id="disp-resultado" class="border border-dashed border-blue-300 p-4 bg-white flex-1 font-mono text-sm">
+                            <p class="text-slate-400 text-xs">Aquí verás qué lote(s) se descontaron después de registrar la salida.</p>
+                            <p class="text-slate-400 text-xs mt-2">Regla PEPS: siempre se toma primero el lote con la fecha de caducidad más próxima. Los lotes caducados nunca se entregan.</p>
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t-2 border-blue-200">
+                            <div class="text-xs font-bold text-slate-600 uppercase mb-2">Salidas de esta sesión</div>
+                            <ul id="disp-historial" class="text-xs font-mono text-slate-600 space-y-1">
+                                <li class="text-slate-400">Aún no hay salidas.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA 3: TRAZABILIDAD Y CONTROL -->
+            <div id="view-traceability" class="view-section hidden animate-fade-in h-full flex flex-col">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-black uppercase flex items-center gap-2">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        Trazabilidad y Control
+                    </h2>
+                    <p class="font-mono text-sm text-slate-500 mt-1">Rastrea un lote: dónde está ahora y a quién se entregó.</p>
+                </div>
+
+                <!-- Buscador -->
+                <form onsubmit="rastrearLote(event)" novalidate class="wireframe-border p-4 mb-6 flex gap-4 items-center">
+                    <div class="relative flex-1">
+                        <span class="absolute left-4 top-3.5 text-slate-400">🔍</span>
+                        <input id="traz-lote" type="text" autocomplete="off" placeholder="Número de lote, ej. LOT-2024-0081" class="bg-white border-2 border-slate-300 text-slate-900 text-lg font-mono rounded-sm focus:border-slate-800 outline-none block w-full pl-12 p-3">
+                    </div>
+                    <button id="traz-btn" type="submit" class="bg-black text-white font-bold py-3 px-8 rounded-sm uppercase hover:bg-slate-800 disabled:opacity-50">Rastrear lote</button>
+                </form>
+
+                <p id="traz-aviso" class="hidden mb-4 text-sm font-semibold rounded p-2 font-mono border"></p>
+
+                <div id="traz-resultado">
+                    <p class="text-sm text-slate-400 font-mono">Escribe un número de lote para ver su ubicación actual y el historial de entregas. Sirve para alertas sanitarias, retiros de mercado y auditorías.</p>
+                </div>
+            </div>
+
+            <!-- VISTA 4: BITÁCORA DE AUDITORÍA -->
+            <div id="view-audit" class="view-section hidden animate-fade-in h-full flex flex-col">
+                <div class="flex justify-between items-start mb-6 flex-wrap gap-3">
+                    <div>
+                        <h2 class="text-3xl font-black uppercase flex items-center gap-2">
+                            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>
+                            Bitácora de Auditoría
+                        </h2>
+                        <p class="font-mono text-sm text-slate-500 mt-1">Registro de cada cambio en el sistema: quién, qué, cuándo y desde dónde.</p>
+                    </div>
+                    <div class="border-2 border-slate-800 px-3 py-1 text-xs font-mono font-bold bg-slate-50">🔒 SOLO LECTURA · NO EDITABLE</div>
+                </div>
+
+                <!-- Filtros -->
+                <form onsubmit="aplicarFiltrosBitacora(event)" class="wireframe-border p-4 mb-4">
+                    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div>
+                            <label for="aud-desde" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Desde</label>
+                            <input id="aud-desde" type="date" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                        </div>
+                        <div>
+                            <label for="aud-hasta" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Hasta</label>
+                            <input id="aud-hasta" type="date" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                        </div>
+                        <div>
+                            <label for="aud-usuario" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Usuario</label>
+                            <select id="aud-usuario" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm"><option value="">Todos</option></select>
+                        </div>
+                        <div>
+                            <label for="aud-tabla" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Qué se modificó</label>
+                            <select id="aud-tabla" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm"><option value="">Todo</option></select>
+                        </div>
+                        <div>
+                            <label for="aud-accion" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Acción</label>
+                            <select id="aud-accion" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                                <option value="">Todas</option>
+                                <option value="INSERT">INSERT (alta)</option>
+                                <option value="UPDATE">UPDATE (cambio)</option>
+                                <option value="DELETE">DELETE (baja)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between flex-wrap gap-3 mt-3">
+                        <label class="flex items-center gap-2 text-sm font-bold text-red-700 cursor-pointer">
+                            <input id="aud-controlado" type="checkbox" class="w-4 h-4"> ⚠ Solo sustancias controladas
+                        </label>
+                        <div class="flex gap-2">
+                            <button type="submit" class="bg-black text-white font-bold py-2 px-5 text-xs uppercase hover:bg-slate-800">Filtrar</button>
+                            <button type="button" onclick="limpiarFiltrosBitacora()" class="border-2 border-slate-300 font-bold py-2 px-4 text-xs uppercase hover:border-slate-800">Limpiar</button>
+                            <button type="button" onclick="exportarBitacora()" class="border-2 border-slate-800 font-bold py-2 px-4 text-xs uppercase hover:bg-slate-100">⬇ Exportar CSV</button>
+                        </div>
+                    </div>
+                </form>
+
+                <p id="aud-aviso" class="hidden mb-4 text-sm font-semibold rounded p-2 font-mono border"></p>
+
+                <!-- Tabla -->
+                <div class="wireframe-border">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs uppercase font-bold text-slate-700 bg-slate-100 border-b-2 border-slate-800">
+                                <tr>
+                                    <th class="p-3 border-r border-slate-300">Fecha y hora</th>
+                                    <th class="p-3 border-r border-slate-300">Usuario</th>
+                                    <th class="p-3 border-r border-slate-300">Rol</th>
+                                    <th class="p-3 border-r border-slate-300 text-center">Acción</th>
+                                    <th class="p-3 border-r border-slate-300">Qué se modificó</th>
+                                    <th class="p-3">Terminal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-auditoria" class="font-mono text-slate-700">
+                                <tr><td colspan="6" class="p-4 text-center text-slate-400">Cargando…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex justify-between items-center flex-wrap gap-2 p-3 border-t-2 border-slate-800 bg-slate-50">
+                        <span id="aud-conteo" class="font-mono text-xs text-slate-500">—</span>
+                        <div class="flex items-center gap-2">
+                            <button id="aud-ant" onclick="irPaginaBitacora(-1)" class="border-2 border-slate-300 px-3 py-1 text-xs font-bold uppercase hover:border-slate-800 disabled:opacity-40">← Anterior</button>
+                            <span id="aud-pagina" class="font-mono text-xs">1 / 1</span>
+                            <button id="aud-sig" onclick="irPaginaBitacora(1)" class="border-2 border-slate-300 px-3 py-1 text-xs font-bold uppercase hover:border-slate-800 disabled:opacity-40">Siguiente →</button>
+                        </div>
+                    </div>
+                </div>
+                <p class="font-mono text-xs text-slate-400 mt-2">Haz clic en una fila para ver el detalle de lo que cambió.</p>
+            </div>
+
+            <!-- VISTA 5: ENTRADAS Y TRASLADOS -->
+            <div id="view-entries" class="view-section hidden animate-fade-in">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-black uppercase flex items-center gap-2">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                        Entradas y Traslados
+                    </h2>
+                    <p class="font-mono text-sm text-slate-500 mt-1">Da entrada a los medicamentos que llegan del proveedor y muévelos entre ubicaciones.</p>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+
+                    <!-- Entrada -->
+                    <form id="form-entrada" onsubmit="registrarEntrada(event)" novalidate class="wireframe-border p-6">
+                        <h3 class="font-bold uppercase text-slate-800 border-b-2 border-slate-200 pb-2 mb-4">📥 Registrar entrada</h3>
+
+                        <div class="flex mb-5 border-2 border-slate-800 text-xs font-bold uppercase">
+                            <button type="button" id="ent-modo-nuevo" onclick="cambiarModoEntrada('nuevo')" class="flex-1 py-2">Lote nuevo (llegó de proveedor)</button>
+                            <button type="button" id="ent-modo-existente" onclick="cambiarModoEntrada('existente')" class="flex-1 py-2 border-l-2 border-slate-800">Lote que ya existe</button>
+                        </div>
+
+                        <!-- Lote nuevo -->
+                        <div id="ent-bloque-nuevo" class="space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="ent-insumo" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Insumo</label>
+                                    <select id="ent-insumo" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm"></select>
+                                </div>
+                                <div>
+                                    <label for="ent-proveedor" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Proveedor</label>
+                                    <select id="ent-proveedor" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm"></select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="ent-numero" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Número de lote</label>
+                                    <input id="ent-numero" type="text" maxlength="50" autocomplete="off" placeholder="Ej: #LOT-2026-0900" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                                </div>
+                                <div>
+                                    <label for="ent-precio" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Precio unitario <span class="text-slate-400 normal-case">(opcional)</span></label>
+                                    <input id="ent-precio" type="number" min="0" step="0.01" placeholder="0.00" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="ent-fab" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Fabricación <span class="text-slate-400 normal-case">(opcional)</span></label>
+                                    <input id="ent-fab" type="date" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                                </div>
+                                <div>
+                                    <label for="ent-cad" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Caducidad</label>
+                                    <input id="ent-cad" type="date" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lote existente -->
+                        <div id="ent-bloque-existente" class="hidden">
+                            <label for="ent-lote" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Lote</label>
+                            <select id="ent-lote" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm"></select>
+                            <p class="text-xs text-slate-400 font-mono mt-1">Solo se muestran lotes vigentes.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label for="ent-ubic" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Ubicación donde queda</label>
+                                <select id="ent-ubic" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm"></select>
+                            </div>
+                            <div>
+                                <label for="ent-cant" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Cantidad recibida</label>
+                                <input id="ent-cant" type="number" min="1" step="1" inputmode="numeric" placeholder="0" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                            </div>
+                        </div>
+
+                        <p id="ent-error" class="hidden mt-4 text-sm font-semibold text-red-700 bg-red-50 border border-red-300 rounded p-2 font-mono"></p>
+                        <p id="ent-ok" class="hidden mt-4 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-400 rounded p-2 font-mono"></p>
+                        <button id="ent-btn" type="submit" class="w-full bg-black text-white font-bold py-3 mt-4 uppercase hover:bg-slate-800 disabled:opacity-50">Registrar entrada</button>
+                    </form>
+
+                    <!-- Traslado -->
+                    <form id="form-traslado" onsubmit="registrarTraslado(event)" novalidate class="wireframe-border p-6 flex flex-col">
+                        <h3 class="font-bold uppercase text-slate-800 border-b-2 border-slate-200 pb-2 mb-4">🔁 Trasladar entre ubicaciones</h3>
+                        <p class="text-xs text-slate-500 font-mono mb-4">Mueve existencias de un lugar a otro (por ejemplo, del almacén central a un quirófano). Se toma primero el lote que caduca antes (PEPS).</p>
+
+                        <div class="space-y-4 flex-1">
+                            <div>
+                                <label for="tras-insumo" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Insumo</label>
+                                <select id="tras-insumo" onchange="cargarExistencias()" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm"></select>
+                                <p id="tras-info" class="text-xs font-mono mt-1 text-slate-500">&nbsp;</p>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                    <label for="tras-cant" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Cantidad</label>
+                                    <input id="tras-cant" type="number" min="1" step="1" inputmode="numeric" placeholder="0" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                                </div>
+                                <div>
+                                    <label for="tras-origen" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Sale de</label>
+                                    <select id="tras-origen" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm"></select>
+                                </div>
+                                <div>
+                                    <label for="tras-destino" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Llega a</label>
+                                    <select id="tras-destino" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm"></select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p id="tras-error" class="hidden mt-4 text-sm font-semibold text-red-700 bg-red-50 border border-red-300 rounded p-2 font-mono"></p>
+                        <p id="tras-ok" class="hidden mt-4 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-400 rounded p-2 font-mono"></p>
+                        <button id="tras-btn" type="submit" class="w-full bg-black text-white font-bold py-3 mt-4 uppercase hover:bg-slate-800 disabled:opacity-50">Trasladar</button>
+                    </form>
+                </div>
+
+                <!-- Últimas entradas -->
+                <div class="wireframe-border">
+                    <div class="bg-slate-100 p-3 border-b-2 border-slate-800 font-bold text-sm uppercase">🕒 Últimas entradas registradas</div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs uppercase font-bold text-slate-700 border-b-2 border-slate-800">
+                                <tr>
+                                    <th class="p-3">Fecha</th><th class="p-3">Lote</th><th class="p-3">Insumo</th>
+                                    <th class="p-3">Ubicación</th><th class="p-3 text-center">Cantidad</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-entradas" class="font-mono text-slate-700">
+                                <tr><td colspan="5" class="p-4 text-center text-slate-400">Cargando…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA 6: USUARIOS -->
+            <div id="view-users" class="view-section hidden animate-fade-in">
+                <div class="flex justify-between items-end mb-6 flex-wrap gap-3">
+                    <div>
+                        <h2 class="text-3xl font-black uppercase flex items-center gap-2">
+                            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path></svg>
+                            Gestión de Usuarios
+                        </h2>
+                        <p class="font-mono text-sm text-slate-500 mt-1">Altas, roles, contraseñas y acceso del personal. Nadie se elimina: se desactiva.</p>
+                    </div>
+                    <button onclick="abrirNuevoUsuario()" class="bg-black text-white font-bold py-2 px-5 text-xs uppercase hover:bg-slate-800">+ Nuevo usuario</button>
+                </div>
+
+                <p id="usr-aviso" class="hidden mb-4 text-sm font-semibold rounded p-2 font-mono border"></p>
+
+                <div class="wireframe-border">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs uppercase font-bold text-slate-700 bg-slate-100 border-b-2 border-slate-800">
+                                <tr>
+                                    <th class="p-3 border-r border-slate-300">Nombre</th>
+                                    <th class="p-3 border-r border-slate-300">Correo</th>
+                                    <th class="p-3 border-r border-slate-300">Rol</th>
+                                    <th class="p-3 border-r border-slate-300 text-center">Estado</th>
+                                    <th class="p-3 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-usuarios" class="font-mono text-slate-700">
+                                <tr><td colspan="5" class="p-4 text-center text-slate-400">Cargando…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Diálogo: nuevo / editar usuario -->
+                <dialog id="dlg-usuario" class="wireframe-border p-0 w-full max-w-md backdrop:bg-black/50">
+                    <form onsubmit="guardarUsuario(event)" novalidate class="p-6">
+                        <h3 id="dlg-usuario-titulo" class="font-bold uppercase text-lg border-b-2 border-slate-200 pb-2 mb-4">Nuevo usuario</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="usr-nombre" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Nombre completo</label>
+                                <input id="usr-nombre" type="text" maxlength="100" class="w-full border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                            </div>
+                            <div>
+                                <label for="usr-correo" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Correo institucional</label>
+                                <input id="usr-correo" type="email" maxlength="100" class="w-full border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                            </div>
+                            <div>
+                                <label for="usr-rol" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Rol</label>
+                                <select id="usr-rol" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm"></select>
+                                <p id="usr-rol-nota" class="hidden text-xs text-slate-500 font-mono mt-1">No puedes cambiar tu propio rol.</p>
+                            </div>
+                            <div id="usr-bloque-pass">
+                                <label for="usr-pass" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Contraseña inicial</label>
+                                <input id="usr-pass" type="password" autocomplete="new-password" class="w-full border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm" placeholder="Mínimo 8 caracteres">
+                            </div>
+                        </div>
+                        <p id="usr-error" class="hidden mt-4 text-sm font-semibold text-red-700 bg-red-50 border border-red-300 rounded p-2 font-mono"></p>
+                        <div class="flex justify-end gap-2 mt-6">
+                            <button type="button" onclick="document.getElementById('dlg-usuario').close()" class="border-2 border-slate-300 font-bold py-2 px-4 text-xs uppercase hover:border-slate-800">Cancelar</button>
+                            <button id="usr-guardar" type="submit" class="bg-black text-white font-bold py-2 px-5 text-xs uppercase hover:bg-slate-800 disabled:opacity-50">Guardar</button>
+                        </div>
+                    </form>
+                </dialog>
+
+                <!-- Diálogo: cambiar contraseña -->
+                <dialog id="dlg-password" class="wireframe-border p-0 w-full max-w-md backdrop:bg-black/50">
+                    <form onsubmit="guardarPassword(event)" novalidate class="p-6">
+                        <h3 class="font-bold uppercase text-lg border-b-2 border-slate-200 pb-2 mb-1">Cambiar contraseña</h3>
+                        <p id="pass-usuario" class="text-sm text-slate-500 font-mono mb-4"></p>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="pass-nueva" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Contraseña nueva</label>
+                                <input id="pass-nueva" type="password" autocomplete="new-password" class="w-full border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm" placeholder="Mínimo 8 caracteres">
+                            </div>
+                            <div>
+                                <label for="pass-repite" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Repite la contraseña</label>
+                                <input id="pass-repite" type="password" autocomplete="new-password" class="w-full border-2 border-slate-300 focus:border-slate-800 outline-none p-2 font-mono text-sm">
+                            </div>
+                        </div>
+                        <p id="pass-error" class="hidden mt-4 text-sm font-semibold text-red-700 bg-red-50 border border-red-300 rounded p-2 font-mono"></p>
+                        <div class="flex justify-end gap-2 mt-6">
+                            <button type="button" onclick="document.getElementById('dlg-password').close()" class="border-2 border-slate-300 font-bold py-2 px-4 text-xs uppercase hover:border-slate-800">Cancelar</button>
+                            <button id="pass-guardar" type="submit" class="bg-black text-white font-bold py-2 px-5 text-xs uppercase hover:bg-slate-800 disabled:opacity-50">Cambiar</button>
+                        </div>
+                    </form>
+                </dialog>
+            </div>
+
+            <!-- FOOTER COMÚN (DENTRO DEL MAIN PARA NO SOBREPOSICIONES) -->
+            <footer class="mt-8 border-t-2 border-slate-800 pt-4 flex justify-between font-mono text-xs text-slate-500 uppercase font-bold">
+                <span>SISTEMA DE TRAZABILIDAD FARMACÉUTICA</span>
+                <span>SIH-FARMACIA</span>
+            </footer>
+        </main>
+    </div>
+
+
+    <!-- LOGICA DE NAVEGACIÓN Y LOGIN -->
+    <script src="app.js"></script>
+</body>
+</html>
