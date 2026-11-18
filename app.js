@@ -2,19 +2,44 @@
 // Utilidad para llamar a la API (misma URL que sirve la página)
 // ---------------------------------------------------------------
 async function api(ruta, opciones = {}) {
-    const resp = await fetch('/api' + ruta, {
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        ...opciones,
-    });
+    let resp;
+    try {
+        resp = await fetch('/api' + ruta, {
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            ...opciones,
+        });
+    } catch (_) {
+        const msg = 'Falla de conexión con el servidor. Verifica que el sistema y PostgreSQL estén activos.';
+        mostrarAlertaGlobal(msg);
+        throw new Error(msg);
+    }
     let datos = null;
     try { datos = await resp.json(); } catch (_) { /* respuesta sin cuerpo */ }
     if (!resp.ok) {
-        const error = new Error((datos && datos.error) || 'Error del servidor (' + resp.status + ')');
+        const msg = (datos && datos.error) ||
+            (resp.status >= 500
+                ? `Falla interna del sistema (${resp.status}). Revisa la base de datos o intenta de nuevo.`
+                : `Error en la solicitud (${resp.status}).`);
+        if (resp.status >= 500) mostrarAlertaGlobal(msg);
+        const error = new Error(msg);
         error.status = resp.status;
         throw error;
     }
+    ocultarAlertaGlobal();
     return datos;
+}
+
+function mostrarAlertaGlobal(msg) {
+    const box = document.getElementById('global-alert');
+    if (!box) return;
+    document.getElementById('global-alert-msg').textContent = '⚠ ' + msg;
+    box.classList.remove('hidden');
+}
+
+function ocultarAlertaGlobal() {
+    const box = document.getElementById('global-alert');
+    if (box) box.classList.add('hidden');
 }
 
 // ---------------------------------------------------------------
@@ -60,6 +85,11 @@ async function handleLogin(event) {
     const error = document.getElementById('login-error');
     const boton = document.getElementById('login-btn');
 
+    if (!correo || !password) {
+        error.textContent = 'Faltan datos: ingresa tu correo y contraseña.';
+        error.classList.remove('hidden');
+        return;
+    }
     error.classList.add('hidden');
     boton.disabled = true;
     boton.textContent = 'Verificando...';
@@ -329,25 +359,28 @@ function crearBuscador(prefijo, ruta, etiqueta, detalle) {
         delete input.dataset.id;
         input.classList.remove('border-emerald-500');
     };
+    const buscar = async (q) => {
+        try {
+            resultados = await api(`/${ruta}?q=${encodeURIComponent(q)}`);
+            lista.innerHTML = resultados.length
+                ? resultados.map((r, n) => `<li><button type="button" data-n="${n}" class="w-full text-left p-2 hover:bg-slate-100 border-b border-slate-200">
+                        <div class="text-sm font-bold">${esc(etiqueta(r))}</div>
+                        <div class="text-xs text-slate-500">${esc(detalle(r))}</div></button></li>`).join('')
+                : '<li class="p-2 text-xs text-slate-400">Sin coincidencias. Usa "+ Nuevo" para registrarlo.</li>';
+            lista.classList.remove('hidden');
+        } catch (e) {
+            cerrar();
+            mostrarErrorDisp(`No se pudo consultar ${ruta}: ${e.message}`);
+        }
+    };
 
+    input.addEventListener('focus', () => {
+        if (!input.dataset.id) buscar(input.value.trim());
+    });
     input.addEventListener('input', () => {
-        limpiarSeleccion();                       // si escribe de nuevo, se descarta lo elegido
+        limpiarSeleccion();
         clearTimeout(temporizador);
-        const q = input.value.trim();
-        if (q.length < 2) return cerrar();
-        temporizador = setTimeout(async () => {
-            try {
-                resultados = await api(`/${ruta}?q=${encodeURIComponent(q)}`);
-                lista.innerHTML = resultados.length
-                    ? resultados.map((r, n) => `<li><button type="button" data-n="${n}" class="w-full text-left p-2 hover:bg-slate-100 border-b border-slate-200">
-                            <div class="text-sm font-bold">${esc(etiqueta(r))}</div>
-                            <div class="text-xs text-slate-500">${esc(detalle(r))}</div></button></li>`).join('')
-                    : '<li class="p-2 text-xs text-slate-400">Sin coincidencias</li>';
-                lista.classList.remove('hidden');
-            } catch (e) {
-                cerrar();
-            }
-        }, 250);
+        temporizador = setTimeout(() => buscar(input.value.trim()), 200);
     });
 
     lista.addEventListener('click', ev => {
@@ -369,6 +402,64 @@ crearBuscador('medico', 'medicos',
 crearBuscador('paciente', 'pacientes',
     p => `${p.nombre}`, p => `Expediente ${p.expediente_folio}${p.area_ingreso ? ' · ' + p.area_ingreso : ''}`);
 
+async function guardarMedico(event) {
+    event.preventDefault();
+    const error = document.getElementById('med-error');
+    const cedula = document.getElementById('med-cedula').value.trim();
+    const nombre = document.getElementById('med-nombre').value.trim();
+    const especialidad = document.getElementById('med-especialidad').value.trim();
+    error.classList.add('hidden');
+    if (!cedula || !nombre) {
+        error.textContent = 'Captura la cédula profesional y el nombre.';
+        error.classList.remove('hidden');
+        return;
+    }
+    try {
+        const medico = await api('/medicos', {
+            method: 'POST',
+            body: JSON.stringify({ cedula_profesional: cedula, nombre, especialidad }),
+        });
+        const input = document.getElementById('disp-medico-q');
+        input.value = medico.nombre;
+        input.dataset.id = medico.id_medico;
+        input.classList.add('border-emerald-500');
+        document.getElementById('dlg-medico').close();
+        event.target.reset();
+    } catch (e) {
+        error.textContent = e.message;
+        error.classList.remove('hidden');
+    }
+}
+
+async function guardarPaciente(event) {
+    event.preventDefault();
+    const error = document.getElementById('pac-error');
+    const expediente = document.getElementById('pac-expediente').value.trim();
+    const nombre = document.getElementById('pac-nombre').value.trim();
+    const area_ingreso = document.getElementById('pac-area').value.trim();
+    error.classList.add('hidden');
+    if (!expediente || !nombre) {
+        error.textContent = 'Captura el expediente/folio y el nombre.';
+        error.classList.remove('hidden');
+        return;
+    }
+    try {
+        const paciente = await api('/pacientes', {
+            method: 'POST',
+            body: JSON.stringify({ expediente_folio: expediente, nombre, area_ingreso }),
+        });
+        const input = document.getElementById('disp-paciente-q');
+        input.value = paciente.nombre;
+        input.dataset.id = paciente.id_paciente;
+        input.classList.add('border-emerald-500');
+        document.getElementById('dlg-paciente').close();
+        event.target.reset();
+    } catch (e) {
+        error.textContent = e.message;
+        error.classList.remove('hidden');
+    }
+}
+
 // ---- Envío del formulario ----
 async function ejecutarDispensacion(event) {
     event.preventDefault();
@@ -386,6 +477,8 @@ async function ejecutarDispensacion(event) {
 
     if (!insumo) return mostrarErrorDisp('Selecciona el insumo.');
     if (!Number.isInteger(cantidad) || cantidad <= 0) return mostrarErrorDisp('Escribe una cantidad mayor a cero.');
+    if (cantidad > insumo.stock_vigente)
+        return mostrarErrorDisp(`Stock vigente insuficiente (disponible: ${insumo.stock_vigente}).`);
     if (!origen) return mostrarErrorDisp('Indica de dónde sale el medicamento.');
     if (inMedico.value.trim() && !idMedico) return mostrarErrorDisp('Elige al médico de la lista de resultados.');
     if (inPaciente.value.trim() && !idPaciente) return mostrarErrorDisp('Elige al paciente de la lista de resultados.');
@@ -658,7 +751,7 @@ async function iniciarBitacora() {
             filtrosBitacoraCargados = true;
         } catch (e) {
             if (e.status === 401) return mostrarLogin();
-            // Si falla, la tabla igual se intenta cargar sin opciones de filtro
+            avisoBitacora('No se pudieron cargar los filtros de auditoría: ' + e.message, 'error');
         }
     }
     cargarBitacora(1);
@@ -973,7 +1066,7 @@ async function cargarExistencias() {
             ? 'Disponible: ' + filas.map(f => `${f.nombre_area} ${f.cantidad}`).join(' · ')
             : 'Sin existencias vigentes de este insumo.';
     } catch (e) {
-        info.textContent = '';
+        info.textContent = 'No se pudieron cargar las existencias: ' + e.message;
     }
 }
 
@@ -1192,6 +1285,14 @@ async function alternarActivo(id, activar) {
 // Navegación entre vistas
 // ---------------------------------------------------------------
 function switchView(viewId) {
+    if (window.usuarioActual) {
+        const ocultas = VISTAS_OCULTAS[window.usuarioActual.rol] || [];
+        if (ocultas.includes(viewId)) {
+            const targetNav = document.getElementById('nav-select');
+            targetNav.value = 'monitor';
+            return switchView('monitor');
+        }
+    }
     // Ocultar todas las vistas
     const views = document.querySelectorAll('.view-section');
     views.forEach(view => {
@@ -1203,7 +1304,7 @@ function switchView(viewId) {
     const targetView = document.getElementById('view-' + viewId);
     if (targetView) {
         targetView.classList.remove('hidden');
-        targetView.classList.add('block');
+        if (!targetView.classList.contains('flex')) targetView.classList.add('block');
     }
     if (viewId === 'monitor' && window.usuarioActual) cargarMonitor();
     if (viewId === 'dispensation' && window.usuarioActual) cargarDispensacion();

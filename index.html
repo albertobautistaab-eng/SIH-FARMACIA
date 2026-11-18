@@ -70,6 +70,11 @@
             </div>
         </header>
 
+        <div id="global-alert" class="hidden bg-red-600 text-white px-6 py-3 font-mono text-sm font-bold flex items-center justify-between border-b-2 border-slate-900">
+            <span id="global-alert-msg"></span>
+            <button type="button" onclick="ocultarAlertaGlobal()" class="border border-white px-2 py-0.5 text-xs uppercase hover:bg-red-700">Cerrar</button>
+        </div>
+
         <!-- ÁREA DE VISTAS PRINCIPAL -->
         <main class="flex-1 overflow-y-auto p-8 bg-white relative">
 
@@ -190,7 +195,7 @@
             </div>
 
             <!-- VISTA 2: REGISTRO DE DISPENSACIÓN (PEPS) -->
-            <div id="view-dispensation" class="view-section hidden animate-fade-in h-full flex flex-col">
+            <div id="view-dispensation" class="view-section hidden animate-fade-in min-h-full flex flex-col">
                 <div class="mb-6">
                     <h2 class="text-3xl font-black uppercase flex items-center gap-2">
                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
@@ -234,14 +239,20 @@
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label for="disp-medico-q" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Médico <span id="disp-medico-req" class="text-red-600"></span></label>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label for="disp-medico-q" class="block text-xs font-bold text-slate-700 uppercase">Médico <span id="disp-medico-req" class="text-red-600"></span></label>
+                                        <button type="button" onclick="document.getElementById('dlg-medico').showModal()" class="text-xs font-mono font-bold underline hover:text-black">+ Nuevo</button>
+                                    </div>
                                     <div class="relative">
                                         <input id="disp-medico-q" type="text" autocomplete="off" placeholder="Nombre o cédula" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-3 font-mono text-sm">
                                         <ul id="disp-medico-lista" class="hidden absolute z-20 left-0 right-0 bg-white border-2 border-slate-800 max-h-48 overflow-y-auto shadow-lg"></ul>
                                     </div>
                                 </div>
                                 <div>
-                                    <label for="disp-paciente-q" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Paciente <span id="disp-paciente-req" class="text-red-600"></span></label>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label for="disp-paciente-q" class="block text-xs font-bold text-slate-700 uppercase">Paciente <span id="disp-paciente-req" class="text-red-600"></span></label>
+                                        <button type="button" onclick="document.getElementById('dlg-paciente').showModal()" class="text-xs font-mono font-bold underline hover:text-black">+ Nuevo</button>
+                                    </div>
                                     <div class="relative">
                                         <input id="disp-paciente-q" type="text" autocomplete="off" placeholder="Nombre o expediente" class="w-full bg-white border-2 border-slate-300 focus:border-slate-800 outline-none p-3 font-mono text-sm">
                                         <ul id="disp-paciente-lista" class="hidden absolute z-20 left-0 right-0 bg-white border-2 border-slate-800 max-h-48 overflow-y-auto shadow-lg"></ul>
@@ -281,7 +292,7 @@
             </div>
 
             <!-- VISTA 3: TRAZABILIDAD Y CONTROL -->
-            <div id="view-traceability" class="view-section hidden animate-fade-in h-full flex flex-col">
+            <div id="view-traceability" class="view-section hidden animate-fade-in min-h-full flex flex-col">
                 <div class="mb-6">
                     <h2 class="text-3xl font-black uppercase flex items-center gap-2">
                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -307,7 +318,7 @@
             </div>
 
             <!-- VISTA 4: BITÁCORA DE AUDITORÍA -->
-            <div id="view-audit" class="view-section hidden animate-fade-in h-full flex flex-col">
+            <div id="view-audit" class="view-section hidden animate-fade-in min-h-full flex flex-col">
                 <div class="flex justify-between items-start mb-6 flex-wrap gap-3">
                     <div>
                         <h2 class="text-3xl font-black uppercase flex items-center gap-2">
@@ -611,6 +622,39 @@
                     </form>
                 </dialog>
             </div>
+
+            <!-- Diálogos rápidos para médicos y pacientes -->
+            <dialog id="dlg-medico" class="wireframe-border p-0 w-full max-w-md backdrop:bg-black/50">
+                <form onsubmit="guardarMedico(event)" novalidate class="p-6">
+                    <h3 class="font-bold uppercase text-lg border-b-2 border-slate-200 pb-2 mb-4">Nuevo médico</h3>
+                    <div class="space-y-4">
+                        <div><label for="med-cedula" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Cédula profesional</label><input id="med-cedula" type="text" maxlength="20" class="w-full border-2 border-slate-300 p-2 font-mono text-sm"></div>
+                        <div><label for="med-nombre" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Nombre</label><input id="med-nombre" type="text" maxlength="100" class="w-full border-2 border-slate-300 p-2 font-mono text-sm"></div>
+                        <div><label for="med-especialidad" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Especialidad</label><input id="med-especialidad" type="text" maxlength="100" class="w-full border-2 border-slate-300 p-2 font-mono text-sm"></div>
+                    </div>
+                    <p id="med-error" class="hidden mt-4 text-sm font-semibold text-red-700 bg-red-50 border border-red-300 rounded p-2 font-mono"></p>
+                    <div class="flex justify-end gap-2 mt-6">
+                        <button type="button" onclick="document.getElementById('dlg-medico').close()" class="border-2 border-slate-300 font-bold py-2 px-4 text-xs uppercase">Cancelar</button>
+                        <button type="submit" class="bg-black text-white font-bold py-2 px-5 text-xs uppercase">Guardar</button>
+                    </div>
+                </form>
+            </dialog>
+
+            <dialog id="dlg-paciente" class="wireframe-border p-0 w-full max-w-md backdrop:bg-black/50">
+                <form onsubmit="guardarPaciente(event)" novalidate class="p-6">
+                    <h3 class="font-bold uppercase text-lg border-b-2 border-slate-200 pb-2 mb-4">Nuevo paciente</h3>
+                    <div class="space-y-4">
+                        <div><label for="pac-expediente" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Expediente / folio</label><input id="pac-expediente" type="text" maxlength="30" class="w-full border-2 border-slate-300 p-2 font-mono text-sm"></div>
+                        <div><label for="pac-nombre" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Nombre</label><input id="pac-nombre" type="text" maxlength="100" class="w-full border-2 border-slate-300 p-2 font-mono text-sm"></div>
+                        <div><label for="pac-area" class="block text-xs font-bold text-slate-700 mb-1 uppercase">Área de ingreso</label><input id="pac-area" type="text" maxlength="100" class="w-full border-2 border-slate-300 p-2 font-mono text-sm"></div>
+                    </div>
+                    <p id="pac-error" class="hidden mt-4 text-sm font-semibold text-red-700 bg-red-50 border border-red-300 rounded p-2 font-mono"></p>
+                    <div class="flex justify-end gap-2 mt-6">
+                        <button type="button" onclick="document.getElementById('dlg-paciente').close()" class="border-2 border-slate-300 font-bold py-2 px-4 text-xs uppercase">Cancelar</button>
+                        <button type="submit" class="bg-black text-white font-bold py-2 px-5 text-xs uppercase">Guardar</button>
+                    </div>
+                </form>
+            </dialog>
 
             <!-- FOOTER COMÚN (DENTRO DEL MAIN PARA NO SOBREPOSICIONES) -->
             <footer class="mt-8 border-t-2 border-slate-800 pt-4 flex justify-between font-mono text-xs text-slate-500 uppercase font-bold">
